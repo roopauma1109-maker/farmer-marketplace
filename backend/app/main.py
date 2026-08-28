@@ -6,7 +6,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .database import engine, Base
 from .seed_data import seed_database
-from .routers import crops, farmers, buyers, enquiries, market_prices, ai
+from .routers import auth, crops, farmers, buyers, enquiries, market_prices, ai
 
 
 # Initialize database tables and seed data
@@ -99,6 +99,7 @@ async def general_exception_handler(
 
 
 # Include Application Routers
+app.include_router(auth.router)
 app.include_router(crops.router)
 app.include_router(farmers.router)
 app.include_router(buyers.router)
