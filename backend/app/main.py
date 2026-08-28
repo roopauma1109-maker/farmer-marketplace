@@ -6,61 +6,99 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .database import engine, Base
 from .seed_data import seed_database
-from .routers import auth, crops, farmers, buyers, enquiries, market_prices, ai
+from .routers import crops, farmers, buyers, enquiries, market_prices, ai
 
-# Initialize tables & seed data on startup
+
+# Initialize database tables and seed data
 try:
     Base.metadata.create_all(bind=engine)
     seed_database()
 except Exception as e:
     print(f"Warning during DB initialization / seeding: {e}")
 
+
+# Create FastAPI application
 app = FastAPI(
     title="AgriDirect API",
-    description="Direct Farmer-to-Buyer Marketplace REST API (SIH26033)",
+    description="Direct Farmer-to-Buyer Marketplace REST API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# Configure CORS for Vite frontend and local testing
+
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[
+        "https://farmer-marketplace-bice.vercel.app",
+        "http://localhost:5173"
+    ],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Clean Global Exception Handlers
+
+# Global HTTP Exception Handler
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+async def http_exception_handler(
+    request: Request,
+    exc: StarletteHTTPException
+):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"success": False, "error": exc.detail or "An error occurred."}
+        content={
+            "success": False,
+            "error": exc.detail or "An error occurred."
+        }
     )
 
+
+# Validation Error Handler
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError
+):
     errors = []
+
     for err in exc.errors():
-        field = " -> ".join(str(loc) for loc in err["loc"] if loc != "body")
-        errors.append(f"{field}: {err['msg']}")
+        field = " -> ".join(
+            str(loc) for loc in err["loc"] if loc != "body"
+        )
+
+        errors.append(
+            f"{field}: {err['msg']}"
+        )
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"success": False, "error": "; ".join(errors) or "Invalid input data."}
+        content={
+            "success": False,
+            "error": "; ".join(errors) or "Invalid input data."
+        }
     )
 
+
+# General Exception Handler
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
+async def general_exception_handler(
+    request: Request,
+    exc: Exception
+):
     print(f"Unhandled server error: {exc}")
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"success": False, "error": "Internal server error. Please try again later."}
+        content={
+            "success": False,
+            "error": "Internal server error. Please try again later."
+        }
     )
 
-# Include Routers
-app.include_router(auth.router)
+
+# Include Application Routers
 app.include_router(crops.router)
 app.include_router(farmers.router)
 app.include_router(buyers.router)
@@ -68,16 +106,20 @@ app.include_router(enquiries.router)
 app.include_router(market_prices.router)
 app.include_router(ai.router)
 
+
+# Root / Health Check
 @app.get("/", tags=["Health"])
 def root():
     return {
         "app": "AgriDirect — Direct Farmer-to-Buyer Marketplace",
         "version": "1.0.0",
         "status": "online",
-        "problem_statement": "SIH26033",
         "docs": "/docs"
     }
 
+
 @app.get("/health", tags=["Health"])
 def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy"
+    }
